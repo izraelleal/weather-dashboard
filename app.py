@@ -22,18 +22,26 @@ cities = [
 # =========================
 def get_weather(city, lat, lon):
 
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_mean,relative_humidity_2m_mean&timezone=auto"
+    url = (
+        "https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_mean,relative_humidity_2m_mean"
+        "&forecast_days=7"
+        "&timezone=auto"
+        "&models=best_match"
+    )
 
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
 
-        # 🔴 VALIDACIÓN SEGURA
-        if "daily" not in data or data["daily"] is None:
-            st.warning(f"No data for {city}")
+        # 🔴 DEBUG REAL (solo si falla)
+        if "daily" not in data:
+            st.error(f"API error in {city}")
+            st.write(data)
             return pd.DataFrame()
 
-        df = pd.DataFrame({
+        return pd.DataFrame({
             "City": city,
             "Date": data["daily"]["time"],
             "High": data["daily"]["temperature_2m_max"],
@@ -42,12 +50,9 @@ def get_weather(city, lat, lon):
             "Precipitation": data["daily"]["precipitation_probability_mean"]
         })
 
-        return df
-
     except Exception as e:
         st.error(f"Error en {city}: {e}")
         return pd.DataFrame()
-
 
 # =========================
 # 📊 BUILD DATASET
