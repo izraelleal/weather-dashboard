@@ -32,9 +32,18 @@ def get_weather(city, lat, lon):
     )
 
     response = requests.get(url, timeout=10)
-    data = response.json()
 
+    try:
+        data = response.json()
+    except Exception:
+        st.error(f"Non-JSON response for {city}")
+        st.write(response.text)
+        return pd.DataFrame()
+
+    # 🔴 DEBUG REAL
     if "daily" not in data:
+        st.error(f"API FAILED for {city}")
+        st.write(data)   # 👈 ESTO ES CLAVE
         return pd.DataFrame()
 
     return pd.DataFrame({
