@@ -4,7 +4,13 @@ import pandas as pd
 st.title("🌤 Weather Executive Dashboard (PRO)")
 
 # 📊 cargar snapshot (NO API)
-df = pd.read_csv("weather_data.csv")
+import os
+
+if os.path.exists("weather_data.csv"):
+    df = pd.read_csv("weather_data.csv")
+else:
+    st.warning("⏳ No data yet. Run GitHub Action to generate weather_data.csv")
+    st.stop()
 
 df = df.sort_values(by=["City", "Date"])
 
