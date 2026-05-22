@@ -18,8 +18,9 @@ cities = [
 ]
 
 # =========================
-# 🔧 API FUNCTION (ROBUSTA)
+# 🔧 API (CACHE POR CIUDAD)
 # =========================
+@st.cache_data(ttl=3600)
 def get_weather(city, lat, lon):
 
     url = (
@@ -28,59 +29,62 @@ def get_weather(city, lat, lon):
         "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_mean,relative_humidity_2m_mean"
         "&forecast_days=7"
         "&timezone=auto"
-        "&models=best_match"
     )
 
-    try:
-        response = requests.get(url, timeout=10)
-        data = response.json()
+    response = requests.get(url, timeout=10)
+    data = response.json()
 
-        # 🔴 DEBUG REAL (solo si falla)
-        if "daily" not in data:
-            st.error(f"API error in {city}")
-            st.write(data)
-            return pd.DataFrame()
-
-        return pd.DataFrame({
-            "City": city,
-            "Date": data["daily"]["time"],
-            "High": data["daily"]["temperature_2m_max"],
-            "Low": data["daily"]["temperature_2m_min"],
-            "Humidity": data["daily"]["relative_humidity_2m_mean"],
-            "Precipitation": data["daily"]["precipitation_probability_mean"]
-        })
-
-    except Exception as e:
-        st.error(f"Error en {city}: {e}")
+    if "daily" not in data:
         return pd.DataFrame()
 
-# =========================
-# 📊 BUILD DATASET
-# =========================
-all_data = []
+    return pd.DataFrame({
+        "City": city,
+        "Date": data["daily"]["time"],
+        "High": data["daily"]["temperature_2m_max"],
+        "Low": data["daily"]["temperature_2m_min"],
+        "Humidity": data["daily"]["relative_humidity_2m_mean"],
+        "Precipitation": data["daily"]["precipitation_probability_mean"]
+    })
 
-for c in cities:
-    df_city = get_weather(c["city"], c["lat"], c["lon"])
-    if not df_city.empty:
-        all_data.append(df_city)
 
-# Evitar crash si no hay datos
-if len(all_data) == 0:
-    st.error("No data available. Check API or internet connection.")
+# =========================
+# 📊 CACHE GLOBAL (CLAVE)
+# =========================
+@st.cache_data(ttl=3600)
+def load_all_data():
+
+    all_data = []
+
+    for c in cities:
+        df_city = get_weather(c["city"], c["lat"], c["lon"])
+        if not df_city.empty:
+            all_data.append(df_city)
+
+    if len(all_data) == 0:
+        return pd.DataFrame()
+
+    return pd.concat(all_data, ignore_index=True)
+
+
+# =========================
+# 📊 LOAD DATA
+# =========================
+df = load_all_data()
+
+if df.empty:
+    st.error("No data available (API or cache issue)")
     st.stop()
 
-df = pd.concat(all_data, ignore_index=True)
 df = df.sort_values(by=["City", "Date"])
 
 
 # =========================
-# 🌐 STREAMLIT DASHBOARD
+# 🌐 DASHBOARD UI
 # =========================
 st.title("🌤 Weather Executive Dashboard")
+st.subheader("Multi-City Forecast System")
 
-st.subheader("Multi-City Weather Report")
-
-# 🔎 FILTER
+# 🔎 FILTRO
 city_filter = st.selectbox("Select City", ["All"] + list(df["City"].unique()))
 
 filtered_df = df.copy()
@@ -90,7 +94,7 @@ if city_filter != "All":
 
 
 # =========================
-# 📊 KPI CARDS
+# 📊 KPIs
 # =========================
 col1, col2, col3 = st.columns(3)
 
